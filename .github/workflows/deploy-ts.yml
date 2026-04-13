@@ -3,6 +3,13 @@ name: CDK Typescript Deploy Reusable Workflow
 on:
   workflow_call:
     inputs:
+      mode:
+        required: false
+        type: string
+        default: all            # all | only | exclude
+      targetStackName:
+        required: false
+        type: string
       environmentName:
         required: false
         type: string
