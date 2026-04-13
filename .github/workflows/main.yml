@@ -11,9 +11,34 @@ on:
       - 'hotfix/**'
 
 jobs:
-  deploy-dev:
+  deploy-dev-secrets:
     if: github.ref_name == 'develop'
     permissions:
       id-token: write      # Required for OIDC
       contents: read       # Required to clone the repo
-    uses: zipon/traceability/.github/workflows/deploy-ts.yml@develop
+    uses: ./.github/workflows/deploy-ts.yml
+    with:
+      mode: only
+      targetStackName: SecretsHydrationSecretsManagerStack
+    secrets: inherit
+
+  populate-dev-secrets:
+    if: github.ref_name == 'develop'
+    needs: [ deploy-dev-secrets ]
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/populate-secrets.yml
+    secrets: inherit
+
+  deploy-dev:
+    if: github.ref_name == 'develop'
+    needs: [ populate-dev-secrets ]
+    permissions:
+      id-token: write      # Required for OIDC
+      contents: read       # Required to clone the repo and write diagram
+    uses: ./.github/workflows/deploy-ts.yml
+    with:
+      mode: exclude
+      targetStackName: SecretsHydrationSecretsManagerStack
+    secrets: inherit

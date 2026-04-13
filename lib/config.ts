@@ -8,7 +8,7 @@ export const Config = {
   MANAGED_BY: 'Lars Andersson',
   BACKUP_REQUIRED: 'no',
 
-  SECRETS_MANAGER_STACK_NAME: 'SecretsHydrationSecretsManager',
+  SECRETS_MANAGER_STACK_NAME: 'SecretsHydrationSecretsManagerStack',
   SECRET_LARS_ANDERSSON: "secrets-hydration-poc-lars-andersson", // Secrets Manager secret (name) holding your xoxb- token.
   ENV: "develop" as EnvName,
 };

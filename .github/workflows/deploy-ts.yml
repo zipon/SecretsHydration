@@ -57,10 +57,52 @@ jobs:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_ROLE_NAME }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      - name: Compute stack list (for conditional deploy)
+        id: stacks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODE="${{ inputs.mode }}"
+          TARGET="${{ inputs.targetStackName }}"
+
+          echo "Mode: $MODE"
+          cdk list > all.txt
+          mapfile -t ALL < all.txt
+          echo "All stacks:"; printf ' - %s\n' "${ALL[@]}"
+
+          if [[ "$MODE" == "only" ]]; then
+            if [[ -z "$TARGET" ]]; then
+              echo "::error::mode=only requires targetStackName"
+              exit 1
+            fi
+            echo "Deploy ONLY: $TARGET"
+            echo "deploy_args=$TARGET" >> "$GITHUB_OUTPUT"
+
+          elif [[ "$MODE" == "exclude" ]]; then
+            if [[ -z "$TARGET" ]]; then
+              echo "::error::mode=exclude requires targetStackName"
+              exit 1
+            fi
+            grep -v "^${TARGET}$" all.txt > rest.txt || true
+            if [[ ! -s rest.txt ]]; then
+              echo "No stacks to deploy after exclusion; exiting gracefully."
+              echo "deploy_args=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Deploy EXCLUDING: $TARGET"
+            echo "deploy_args=$(tr '\n' ' ' < rest.txt)" >> "$GITHUB_OUTPUT"
+
+          else
+            echo "Deploy ALL stacks"
+            echo "deploy_args=$(tr '\n' ' ' < all.txt)" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy CDK stack
+        if: ${{ steps.stacks.outputs.deploy_args != '' || inputs.mode == 'all' }}
         run: |
           echo "Deploying branch ${GITHUB_REF_NAME} to account ${{ vars.AWS_ACCOUNT_ID }}"
-          cdk deploy --all \
+          cdk deploy ${{ steps.stacks.outputs.deploy_args }} \
             --require-approval never \
             -c gitCommit=${GITHUB_SHA} \
             -c repoName=${GITHUB_REPOSITORY} \
