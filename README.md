@@ -1,67 +1,86 @@
-# Traceability
+# SecretsHydration
 
-**End-to-end traceability for AWS CDK deployments**  
-_Git → GitHub Actions → CDK → CloudFormation_
+**Continuation of the Traceability seed project**  
+_Git -> GitHub Actions -> CDK -> CloudFormation -> Secrets hydration_
 
 ## Why this project exists
 
-If you’ve ever opened a legacy AWS account and found a CloudFormation stack named something like:
+This project does not start from a blank CDK template.
 
-> `PinkFluffyUnicornsDancingOnRainbows`
+It starts from the **Traceability** project and uses that stack as the seed:
 
-you’ve probably asked yourself:
+- Git metadata passed into CDK
+- deployment traceability via CloudFormation output
+- manual vs CI/CD deployment detection
+- GitHub Actions and OIDC as the deployment pattern
 
-- Which git project owns this stack?
-- Which branch and commit produced it?
-- Was it deployed manually or via CI/CD?
-- Is this stack still relevant — or safe to delete?
+Traceability solved one problem well:
 
-In many environments, the answers to these questions are lost over time.
+> When you open an AWS account, can you tell which git project, branch, and commit deployed the stack?
 
-This project demonstrates a simple, reusable pattern for **full end-to-end traceability** between:
-- Git repositories
-- CI/CD pipelines (GitHub Actions)
-- AWS CDK
-- CloudFormation stacks and outputs
+This project continues with the next problem:
 
-The goal is to make it obvious — directly in the AWS console — **where a stack came from and how it was deployed**.
+> When the AWS account is fresh and the secrets are empty, how do we create and hydrate secrets without stopping the deployment and doing it manually?
 
----
+That is the purpose of `SecretsHydration`.
 
-## What this project shows
+## What this project is about
 
-This repository demonstrates:
+The goal here is to extend the Traceability pattern into **Secrets Manager hydration**.
 
-- Manual vs CI/CD deployment detection
-- Passing git metadata into CDK using context
-- Exposing traceability via:
-  - CloudFormation outputs
-  - (Optionally) tags
-- Using GitHub Actions with OIDC (no long-lived AWS credentials)
-- Reusable GitHub Actions workflows for CDK deployments
-- How confusing stack names stop being a problem when traceability exists
+The problem we want to solve is the manual break in many so-called automated deployments:
 
----
+1. Deploy the stack.
+2. Watch it fail because the secret does not exist or has no value.
+3. Open AWS Secrets Manager manually.
+4. Paste the secret values by hand.
+5. Re-run the deployment.
 
-## Traceability data captured
+That is exactly the step we want to remove.
 
-When deployed via GitHub Actions, the following information is passed into CDK:
+This project is intended to show how to:
 
-- **Repository name**
-- **Branch name**
-- **Git commit SHA**
-- **Deployment source** (manual vs GitHub Actions)
+- create secret containers in AWS with CDK
+- hydrate those secrets from GitHub environment secrets
+- continue the deployment without a manual stop
+- support a better one-run recovery flow for a fresh AWS account
 
-Example CloudFormation output:
+## Traceability seed
 
-zipon/Traceability (develop) @ e1acbc0
+This repository still carries the Traceability foundation on purpose.
 
-## Article
+The current stack keeps the same core behavior:
 
-Read the full write-up on Medium:  
+- tags resources with project metadata
+- emits deployment information as CloudFormation output
+- accepts `repoName`, `branchName`, and `gitCommit` through CDK context
+- falls back to `Manually deployed` when no CI/CD metadata is provided
+
+That means the repo starts from a known and already explained base instead of rebuilding the deployment story from zero.
+
+## What comes next
+
+The next step in this project is to build the secrets hydration flow on top of that seed:
+
+1. Deploy the secrets stack first.
+2. Create the secret resources in AWS Secrets Manager.
+3. Hydrate them from GitHub environment secrets in GitHub Actions.
+4. Let the rest of the stacks consume those secrets.
+
+This is the missing bridge between:
+
+- **traceability**: knowing who deployed what
+- **recoverability**: being able to stand up the account and continue without waiting for a manual secrets step
+
+## Previous article
+
+The seed project and the thinking behind the traceability part are described here:
+
 [Where the hell is the git project that owns this?](https://lars-andersson.medium.com/where-the-hell-is-the-git-project-that-owns-this-550bd96dd230)
+
+This repository is the follow-up path from that article into secrets hydration.
 
 ## License
 
 This project is licensed under the **Beer-Ware License**.  
-If you use it and we ever meet, you owe me a beer 🍺
+If you use it and we ever meet, you owe me a beer.
