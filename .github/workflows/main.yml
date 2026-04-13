@@ -1,0 +1,19 @@
+name: CDK Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - stage
+      - main
+      - 'release/**'
+      - 'feature/**'
+      - 'hotfix/**'
+
+jobs:
+  deploy-dev:
+    if: github.ref_name == 'develop'
+    permissions:
+      id-token: write      # Required for OIDC
+      contents: read       # Required to clone the repo
+    uses: zipon/traceability/.github/workflows/deploy-ts.yml@develop

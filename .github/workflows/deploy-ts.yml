@@ -1,0 +1,67 @@
+name: CDK Typescript Deploy Reusable Workflow
+
+on:
+  workflow_call:
+    inputs:
+      environmentName:
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write      # Required for OIDC
+      contents: read       # Required to clone the repo
+    # Set the GitHub Environment here (so Environment and variables resolve correctly)
+    environment: ${{ inputs.environmentName || (
+      github.ref_name == 'main' && 'prod'
+      || github.ref_name == 'master' && 'prod'
+      || github.ref_name == 'prod' && 'prod'
+      || github.ref_name == 'stage' && 'stage'
+      || github.ref_name == 'staging' && 'stage'
+      || github.ref_name == 'develop' && 'develop'
+      || github.ref_name == 'dev' && 'develop'
+      || 'develop' ) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Install AWS CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Build CDK app
+        run: npm run build
+
+      - name: Synthesize CDK
+        run: cdk synth
+
+      - name: Use environment vars
+        run: |
+          echo "AWS_REGION=${{ vars.AWS_REGION }}"
+          echo "AWS_ROLE_NAME=${{ vars.AWS_ROLE_NAME }}"
+
+      - name: Configure AWS credentials from OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_ROLE_NAME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy CDK stack
+        run: |
+          echo "Deploying branch ${GITHUB_REF_NAME} to account ${{ vars.AWS_ACCOUNT_ID }}"
+          cdk deploy --all \
+            --require-approval never \
+            -c gitCommit=${GITHUB_SHA} \
+            -c repoName=${GITHUB_REPOSITORY} \
+            -c branchName=${GITHUB_REF_NAME}
