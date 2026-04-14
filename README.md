@@ -1,72 +1,125 @@
 # SecretsHydration
 
+**One-run secrets recovery for AWS CDK deployments**  
 _Git -> GitHub Actions -> CDK -> CloudFormation -> Secrets hydration_
 
-## What This Project Is
+## Why this project exists
 
-`SecretsHydration` is a small CDK project that demonstrates a one-run secrets recovery pattern:
+If you've ever deployed infrastructure into a fresh AWS account and watched the run fail because a secret did not exist yet, you already know the problem.
 
-1. Deploy a dedicated secrets stack first.
-2. Let CDK create the KMS key and Secrets Manager secret containers.
-3. Hydrate those secrets from GitHub environment secrets in GitHub Actions.
-4. Deploy the remaining stacks after the secrets exist.
+The usual dance looks something like this:
 
-The goal is to remove the manual "deployment failed because the secret is missing" checkpoint from recovery and fresh-account deployments.
+1. Deploy the stack.
+2. Watch it fail because the secret is missing.
+3. Open AWS Secrets Manager manually.
+4. Create the secret by hand.
+5. Paste the values from somewhere else.
+6. Re-run the deployment.
 
-## What This Repository Does Today
+That is not infrastructure as code. That is infrastructure as long as Dave is awake.
 
-This repository stands on its own on the `develop` branch.
+This project demonstrates a simple, reusable pattern for removing that manual checkpoint from AWS CDK deployments.
 
-You do not need a local copy of the `Traceability` project to understand or run it.
-What this repo keeps from that earlier work is the deployment metadata pattern:
+The goal is to make recovery and fresh-account deployment feel like one run instead of two runs plus one tired human.
 
-- Git metadata passed into CDK through context
-- a `DeploymentInfo` CloudFormation output
-- manual vs CI/CD deployment detection
-- GitHub Actions with AWS OIDC role assumption
+---
 
-So `Traceability` is background context, not a technical prerequisite for this repo.
+## What this project shows
 
-## Optional Background Reading
+This repository demonstrates:
 
-If you want the earlier story behind the deployment metadata pattern, that article is here:
+- Creating secret containers in AWS Secrets Manager with CDK
+- Creating a dedicated KMS key for those secrets
+- Using GitHub Actions with OIDC instead of long-lived AWS credentials
+- Hydrating AWS secrets from GitHub environment secrets
+- Sequencing deployments so secrets exist before the rest of the stacks consume them
+- Carrying forward deployment metadata such as repo, branch, and commit through CDK context and CloudFormation output
+- A practical path toward single-run disaster recovery in a fresh AWS account
 
-[Where the hell is the git project that owns this?](https://lars-andersson.medium.com/where-the-hell-is-the-git-project-that-owns-this-550bd96dd230)
+---
 
-Read it for background if useful, but this repository is meant to be understandable without it.
+## The core pattern
 
-## Real Prerequisites
+The pattern is simple:
 
-To make this project work, the important prerequisites are operational rather than historical:
+1. Deploy the secrets stack first.
+2. Let CDK create the secret placeholders and KMS key.
+3. Hydrate those secrets from GitHub environment secrets.
+4. Deploy the rest of the stacks after the secrets exist.
 
-- an AWS account and region to deploy into
-- a GitHub repository with Actions enabled
-- a GitHub OIDC role in AWS that the workflow can assume
+In short:
+
+`create the secret first -> hydrate the secret second -> consume the secret third`
+
+That middle step is the whole point.
+
+---
+
+## What this project depends on
+
+The important prerequisites are operational rather than historical:
+
+- An AWS account and region to deploy into
+- A GitHub repository with Actions enabled
+- An AWS IAM role for GitHub OIDC
 - GitHub environment variables such as `AWS_ACCOUNT_ID`, `AWS_ROLE_NAME`, and `AWS_REGION`
-- GitHub environment secrets for the payload values that will be written into AWS Secrets Manager
+- GitHub environment secrets that hold the bootstrap secret values for each environment
 
-## Project Flow
+This repository stands on its own.
 
-The current flow in this repo is:
+It draws from the same deployment structure as `Traceability`, but you do not need that older project checked out locally to understand or run this one.
 
-1. `main.yml` deploys `SecretsHydrationSecretsManagerStack` first.
-2. `populate-secrets.yml` writes the environment-specific values into the created secret.
-3. `main.yml` deploys the remaining stacks after hydration.
+---
 
-That sequence is the main point of the project:
+## Why GitHub environment secrets are used
 
-- create the secret first
-- hydrate the secret second
-- consume the secret third
+This pattern works best when the source secrets are environment-specific.
 
-## What To Watch For
+GitHub environment secrets make it possible to separate `develop`, `stage`, and `prod`, while still using GitHub Actions and OIDC to move the values into AWS Secrets Manager at deploy time.
 
-There are a few PoC choices in the current repo that you would likely harden before production:
+That gives you a sane split:
 
-- KMS keys and secrets currently use `RemovalPolicy.DESTROY`
-- the example workflow currently shows the `develop` path in `main.yml`
-- the placeholder secret object in CDK and the hydrated JSON payload should stay intentionally aligned and documented
+- GitHub stores the bootstrap values per environment
+- AWS Secrets Manager stores the runtime secrets in the target AWS account
 
+---
+
+## What happens after hydration
+
+Once the secret has been hydrated, the rest of the system can consume it in different ways:
+
+- Runtime consumption, where applications or jobs read the secret directly from Secrets Manager when they run
+- Deploy-time consumption, where CloudFormation dynamic references resolve secret values during deployment
+
+Same hydrated secret. Two different consumption models. Same pipeline.
+
+---
+
+## Disaster recovery angle
+
+This is really a disaster recovery project disguised as a secrets project.
+
+Without hydration in the pipeline, recovery into a fresh AWS account often means:
+
+`deploy -> fail -> create secrets manually -> re-run`
+
+With hydration in the pipeline, the recovery flow becomes:
+
+`assume role -> create secret resources -> hydrate secrets -> deploy the rest`
+
+That gets you much closer to a real single-run recovery path.
+
+---
+
+## Article
+
+Read the full write-up on Medium:  
+_Link to be added when the article is published._
+
+Article title:  
+**How the hell did Dave put the secrets in a fresh AWS account in the first place?**
+
+---
 
 ## License
 
