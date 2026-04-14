@@ -2,7 +2,7 @@
   "name": "secrets-hydration",
   "version": "0.1.0",
   "bin": {
-    "traceability": "bin/traceability.js"
+    "secrets-hydration": "bin/secrets-hydration.js"
   },
   "scripts": {
     "build": "tsc",
